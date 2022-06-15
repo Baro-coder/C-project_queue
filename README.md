@@ -1,4 +1,4 @@
-# C-project - qurur
+# C-project - queue
 
 
 ## Opis [^desc]
