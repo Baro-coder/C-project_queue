@@ -25,34 +25,36 @@ int main(int argc, char ** argv)
 
     while(1)
     {
-        if(receive(buffer) == 0)
+        if(running)
         {
-            //printf("P2: %s\n", buffer);
+            if(receive(buffer) == 0)
+            {
+                sprintf(output, "%d", strlen(buffer));
 
-            sprintf(output, "%d", strlen(buffer));
+                transfer(output, INT_TYPE);
 
-            transfer(output, INT_TYPE);
+                if(strstr(buffer, "\n")){
+                    transfer("0", NWLINE_TYPE);
+                }
 
-            if(strstr(buffer, "\n")){
-                transfer("0", NWLINE_TYPE);
+                memset(buffer, 0, BUFF_SIZE);
+                buffer = (char *) malloc(BUFF_SIZE * sizeof(char));
+                memset(output, 0, BUFF_SIZE);
+                output = (char *) malloc(BUFF_SIZE * sizeof(char));
             }
-
-            memset(buffer, 0, BUFF_SIZE);
-            buffer = (char *) malloc(BUFF_SIZE * sizeof(char));
-            memset(output, 0, BUFF_SIZE);
-            output = (char *) malloc(BUFF_SIZE * sizeof(char));
         }
     }
 
     return 0;
 }
 
-
 void build(char ** argv)
 {
     ppid = getppid();
     pid = getpid();
     p_n = 2;
+    p_next_id = atoi(argv[3]);
+    running = 1;
 
     qID_1 = queueOpen((key_t) KEY_QUEUE_1);
     if(qID_1 == -1){
@@ -64,8 +66,16 @@ void build(char ** argv)
         report_err("Error opening the queue 2!");
     }
 
-    signal(SIGINT,  sigHandler);
-    signal(SIGUSR1, sigHandler);
+    int shmkey = ftok ("/dev/null", KEY_SHMEM);
+    shmid = shmget (shmkey, sizeof (int), 0644 | IPC_CREAT);
+    if (shmid < 0){
+        report_err("Error getting shared memory segment!");
+    }
+
+    shm_code = (int *) shmat (shmid, NULL, 0);
+
+    signal(SIGINT,  SIG_IGN);
+    signal(SIGUSR1, SIG_IGN);
     signal(SIGUSR2, sigHandler);
 }
 
@@ -107,30 +117,37 @@ void transfer(char * output, int msg_type)
 
 void sigHandler(int signum)
 {
-    char * report = (char *) malloc(64 * sizeof(char));
-
-    if(signum == SIGINT)
+    if(signum == SIGUSR2)
     {
-        sprintf(report, "Received SIGINT: [%d]", signum);
-        report_err(report);
-    }
-    else if(signum == SIGUSR1)
-    {
-        sprintf(report, "Received SIGUSR1: [%d]", signum);
-        report_err(report);
-    }
-    else if(signum == SIGUSR2)
-    {
+        char * report = (char *) malloc(BUFF_SIZE * sizeof(char));
         sprintf(report, "Received SIGUSR2: [%d]", signum);
         report_err(report);
-    }
-    else
-    {
-        sprintf(report, "Received unknown signal: [%d]", signum);
-        report_err(report);
-    }
 
-    free(report);
+        int sig_code = *shm_code;
+
+        sprintf(report, "Read: [%d]", sig_code);
+        report_err(report);
+
+        kill(p_next_id, SIGUSR2);
+
+        if(sig_code == SIGINT)
+        {
+            shmdt (shm_code);
+
+            sprintf(report, "End of work.");
+            report_err(report);
+            free(report);
+            
+            kill(pid, SIGTERM);
+        }
+        else if(sig_code == SIGUSR1)
+        {
+            if(running == 0) running = 1;
+            else running = 0;
+        }
+
+        free(report);
+    }
 }
 
 void report_out(char * message)

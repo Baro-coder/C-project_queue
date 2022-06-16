@@ -4,8 +4,11 @@
 
 int ppid;   // parent process ID
 int pid;    // process ID
+int p_next_id;   // next process ID
 
 int p_n;    // process number
+
+int running;
 
 void build(char ** argv);       // prepare the control data
 

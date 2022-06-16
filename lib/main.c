@@ -55,6 +55,16 @@ int buildTheSyncStructures()
         return 1;
     }
 
+    int shmkey = ftok ("/dev/null", KEY_SHMEM);
+    shmid = shmget (shmkey, sizeof (int), 0644 | IPC_CREAT);
+    if (shmid < 0){
+        report_err("Error getting shared memory segment!");
+        return 1;
+    }
+
+    shm_code = (int *) shmat (shmid, NULL, 0);
+    *shm_code = 0;
+
     return 0;
 }
 
@@ -71,6 +81,9 @@ int removeTheSyncStructures()
         report_err("Error removing queue 2!");
         return 1;
     }
+
+    shmdt (shm_code);
+    shmctl (shmid, IPC_RMID, 0);
 
     return 0;
 }
@@ -94,9 +107,13 @@ int callTheChildProcesses()
 {
     char * qID_1_str = (char *) malloc(32 * sizeof(char));
     char * qID_2_str = (char *) malloc(32 * sizeof(char));
+    char * p2_str = (char *) malloc(16 * sizeof(char));
+    char * p3_str = (char *) malloc(16 * sizeof(char));
 
     sprintf(qID_1_str, "%d", qID_1);
     sprintf(qID_2_str, "%d", qID_2);
+    sprintf(p2_str, "%d", getpid() + 2);
+    sprintf(p3_str, "%d", getpid() + 3);
 
     ((p1 = fork()) && (p2 = fork()) && (p3 = fork()));
     if(p1 < 0 || p2 < 0 || p3 < 0) {
@@ -104,12 +121,12 @@ int callTheChildProcesses()
         return 1;
     }
     else if(p1 == 0){
-        char* args[] = {p1_src_file, qID_1_str, qID_2_str, NULL};
+        char* args[] = {p1_src_file, qID_1_str, qID_2_str, p2_str, NULL};
         execvp(p1_src_file, args);
         exit(EXIT_SUCCESS);
     }
     else if(p2 == 0){
-        char* args[] = {p2_src_file, qID_1_str, qID_2_str, NULL};
+        char* args[] = {p2_src_file, qID_1_str, qID_2_str, p3_str, NULL};
         execvp(p2_src_file, args);
         exit(EXIT_SUCCESS);
     }
@@ -149,11 +166,14 @@ void sigHandler(int signum)
 {
     char * report = (char *) malloc(64 * sizeof(char));
 
+    *shm_code = signum;
+
+    kill(p1, SIGUSR2);
+
     if(signum == SIGINT)
     {
         sprintf(report, "Received SIGINT: [%d]", signum);
         report_err(report);
-        killTheChildProcesses();
     }
     else if(signum == SIGUSR1)
     {

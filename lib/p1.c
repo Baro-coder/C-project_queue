@@ -38,6 +38,8 @@ void build(char ** argv)
     ppid = getppid();
     pid = getpid();
     p_n = 1;
+    p_next_id = atoi(argv[3]);
+    running = 1;
 
     qID_1 = queueOpen((key_t) KEY_QUEUE_1);
 
@@ -45,8 +47,16 @@ void build(char ** argv)
         report_err("Error opening the queue 1!");
     }
 
-    signal(SIGINT,  sigHandler);
-    signal(SIGUSR1, sigHandler);
+    int shmkey = ftok ("/dev/null", KEY_SHMEM);
+    shmid = shmget (shmkey, sizeof (int), 0644 | IPC_CREAT);
+    if (shmid < 0){
+        report_err("Error getting shared memory segment!");
+    }
+
+    shm_code = (int *) shmat (shmid, NULL, 0);
+
+    signal(SIGINT,  SIG_IGN);
+    signal(SIGUSR1, SIG_IGN);
     signal(SIGUSR2, sigHandler);
 }
 
@@ -57,7 +67,7 @@ void menu()
     
     while(1)
     {
-        usleep(500);
+        usleep(800);
 
         printf("----------------------------\n");
         printf(" # MENU # \n");
@@ -67,17 +77,20 @@ void menu()
         printf(" > ");
         scanf("%c", &c);
 
-        if(c == '1')
+        if(running)
         {
-            manual();
-        }
-        else if(c == '2')
-        {
-            file();
-        }
-        else
-        {
-            printf("\n Select the valid option!\n");
+            if(c == '1')
+            {
+                manual();
+            }
+            else if(c == '2')
+            {
+                file();
+            }
+            else
+            {
+                printf("\n Select the valid option!\n");
+            }
         }
 
         c = '\0';
@@ -98,11 +111,14 @@ void manual()
         printf(" > ");
         fgets(buffer, sizeof(buffer), stdin);
 
-        if(strncmp(buffer, "exit", 4) == 0){
-            free(buffer);
-            break;
-        } else {
-            transfer(buffer, STRING_TYPE);
+        if(running)
+        {
+            if(strncmp(buffer, "exit", 4) == 0){
+                free(buffer);
+                break;
+            } else {
+                transfer(buffer, STRING_TYPE);
+            }
         }
 
         memset(buffer, 0, BUFF_SIZE);
@@ -125,13 +141,16 @@ void file()
 
         while(1)
         {
-            buffer = (char *) malloc(BUFF_SIZE * sizeof(char));
+            if(running)
+            {
+                buffer = (char *) malloc(BUFF_SIZE * sizeof(char));
 
-            if(fgets(buffer, sizeof(buffer), fp) == NULL) break;
+                if(fgets(buffer, sizeof(buffer), fp) == NULL) break;
 
-            transfer(buffer, STRING_TYPE);
+                transfer(buffer, STRING_TYPE);
 
-            memset(buffer, 0, BUFF_SIZE);
+                memset(buffer, 0, BUFF_SIZE);
+            }
         }
 
         fclose(fp);
@@ -163,33 +182,39 @@ void transfer(char * buffer, int msg_type)
     msgsnd(qID_1, &msg, sizeof(struct msgbuff), 0);
 }
 
-
 void sigHandler(int signum)
 {
-    char * report = (char *) malloc(64 * sizeof(char));
-
-    if(signum == SIGINT)
+    if(signum == SIGUSR2)
     {
-        sprintf(report, "Received SIGINT: [%d]", signum);
-        report_err(report);
-    }
-    else if(signum == SIGUSR1)
-    {
-        sprintf(report, "Received SIGUSR1: [%d]", signum);
-        report_err(report);
-    }
-    else if(signum == SIGUSR2)
-    {
+        char * report = (char *) malloc(BUFF_SIZE * sizeof(char));
         sprintf(report, "Received SIGUSR2: [%d]", signum);
         report_err(report);
-    }
-    else
-    {
-        sprintf(report, "Received unknown signal: [%d]", signum);
-        report_err(report);
-    }
 
-    free(report);
+        int sig_code = *shm_code;
+
+        sprintf(report, "Read: [%d]", sig_code);
+        report_err(report);
+
+        kill(p_next_id, SIGUSR2);
+
+        if(sig_code == SIGINT)
+        {
+            shmdt (shm_code);
+
+            sprintf(report, "End of work.");
+            report_err(report);
+            free(report);
+
+            kill(pid, SIGTERM);
+        }
+        else if(sig_code == SIGUSR1)
+        {
+            if(running == 0) running = 1;
+            else running = 0;
+        }
+
+        free(report);
+    }
 }
 
 void report_out(char * message)
