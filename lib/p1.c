@@ -9,16 +9,26 @@
 #include <sys/shm.h>
 #include <time.h>
 #include <errno.h>
+#include <string.h>
 #include <fcntl.h>
 
 #include "consts.h"
 #include "child.h"
 
+void menu();
+void manual();
+void file();
+
 int main(int argc, char ** argv)
 {
     build(argv);
     report_out("Ready.");
-    
+
+    while(1)
+    {
+        menu();
+    }
+
     return 0;
 }
 
@@ -29,9 +39,137 @@ void build(char ** argv)
     pid = getpid();
     p_n = 1;
 
+    qID_1 = queueOpen((key_t) KEY_QUEUE_1);
+
+    if(qID_1 == -1){
+        report_err("Error opening the queue 1!");
+    }
+
     signal(SIGINT,  sigHandler);
     signal(SIGUSR1, sigHandler);
     signal(SIGUSR2, sigHandler);
+}
+
+
+void menu()
+{
+    char c = '\0';
+    
+    while(1)
+    {
+        usleep(500);
+        printf("----------------------------\n");
+        printf(" # MENU # \n");
+        printf(" [1]. Manual\n");
+        printf(" [2]. File\n");
+        printf(" Select option: \n");
+        printf(" > ");
+        scanf("%c", &c);
+
+        if(c == '1')
+        {
+            manual();
+        }
+        else if(c == '2')
+        {
+            file();
+        }
+        else
+        {
+            printf("\n Select the valid option!\n");
+        }
+
+        c = '\0';
+    }
+}
+
+void manual()
+{
+    char * buffer;
+
+    while(1)
+    {
+        usleep(400);
+
+        buffer = (char *) malloc(BUFF_SIZE * sizeof(char));
+
+        printf("\nType the message ('exit' to back to the menu):\n");
+        printf(" > ");
+        fgets(buffer, sizeof(buffer), stdin);
+
+        if(strncmp(buffer, "exit", 4) == 0){
+            free(buffer);
+            break;
+        } else {
+            transfer(buffer);
+        }
+
+        memset(buffer, 0, BUFF_SIZE);
+    }
+}
+
+void file()
+{
+    char * filepath = (char *) malloc(BUFF_SIZE * sizeof(char));
+
+    printf("\nType the filepath:\n");
+    printf(" > ");
+    scanf("%s", filepath);
+
+    FILE * fp = fopen(filepath, "r");
+    if(fp == NULL){
+        printf("\n %s: Cannot open the file!\n", filepath);
+    } else {
+        char * buffer;
+
+        while(1)
+        {
+            buffer = (char *) malloc(BUFF_SIZE * sizeof(char));
+
+            if(fgets(buffer, sizeof(buffer), fp) == NULL) break;
+
+            transfer(buffer);
+
+            memset(buffer, 0, BUFF_SIZE);
+        }
+
+        fclose(fp);
+        free(filepath);
+        free(buffer);
+    }
+}
+
+
+int queueOpen(key_t key)
+{
+    int qID;
+    if((qID = msgget(key, 0)) == -1) return -1;
+    else return qID;
+}
+
+void transfer(char * buffer)
+{
+    struct msgbuff msg;
+
+    msg.type = STRING_TYPE;
+    
+    int i = 0;
+    char c = buffer[i]; 
+    while(1)
+    {
+        if(c == '\n') break;
+
+        msg.data[i] = c;
+        i++;
+        c = buffer[i];
+    }
+    msg.data[i] = '\0';
+
+    char * report = (char *) malloc(BUFF_SIZE * sizeof(char));
+    sprintf(report, "Send: {%d : %s}", msg.type, msg.data);
+    report_out(report);
+
+    msgsnd(qID_1, &msg, sizeof(struct msgbuff), 0);
 }
 
 
@@ -65,10 +203,10 @@ void sigHandler(int signum)
 
 void report_out(char * message)
 {
-    fprintf(stdout, "P1[%d]: %s\n", pid, message);
+    fprintf(stdout, "P%d[%d]: %s\n", p_n, pid, message);
 }
 
 void report_err(char * message)
 {
-    fprintf(stderr, "P1[%d]: %s\n", pid, message);
+    fprintf(stderr, "P%d[%d]: %s\n", p_n, pid, message);
 }

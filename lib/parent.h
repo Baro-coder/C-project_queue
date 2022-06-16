@@ -10,10 +10,7 @@ pid_t p1;   // Process 1 ID
 pid_t p2;   // Process 2 ID
 pid_t p3;   // Process 3 ID
 
-int qID_1;  // queue ID: P1 > P2
-int qID_2;  // queue ID: P2 > P3
-
-int queueOpen();    // Create the queue
+int queueOpen(key_t key);    // Create the queue
 int queueRemove();  // Remove the queue
 
 int buildTheSyncStructures();   // create the synchronization structures

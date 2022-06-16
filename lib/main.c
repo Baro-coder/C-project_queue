@@ -43,39 +43,82 @@ int main()
 
 int buildTheSyncStructures()
 {
+    if ((qID_1 = queueOpen((key_t) KEY_QUEUE_1)) == -1)
+    {
+        report_err("Error opening queue 1!");
+        return 1;
+    }
+
+    if ((qID_2 = queueOpen((key_t) KEY_QUEUE_2)) == -1)
+    {
+        report_err("Error opening queue 1!");
+        return 1;
+    }
+
     return 0;
 }
 
 int removeTheSyncStructures()
 {
+    if (queueRemove(qID_1) == -1)
+    {
+        report_err("Error removing queue 1!");
+        return 1;
+    }
+
+    if (queueRemove(qID_2) == -1)
+    {
+        report_err("Error removing queue 2!");
+        return 1;
+    }
+
     return 0;
+}
+
+
+int queueOpen(key_t key)
+{
+    int qID;
+    if((qID = msgget(key, IPC_CREAT | 0660)) == -1) return -1;
+    else return qID;
+}
+
+int queueRemove(int qID)
+{
+    if(msgctl(qID, IPC_RMID, 0) == -1) return -1;
+    else return qID;
 }
 
 
 int callTheChildProcesses()
 {
+    char * qID_1_str = (char *) malloc(32 * sizeof(char));
+    char * qID_2_str = (char *) malloc(32 * sizeof(char));
+
+    sprintf(qID_1_str, "%d", qID_1);
+    sprintf(qID_2_str, "%d", qID_2);
+
     ((p1 = fork()) && (p2 = fork()) && (p3 = fork()));
     if(p1 < 0 || p2 < 0 || p3 < 0) {
         killTheChildProcesses();
         return 1;
     }
     else if(p1 == 0){
-        char* args[] = {p1_src_file, NULL};
+        char* args[] = {p1_src_file, qID_1_str, qID_2_str, NULL};
         execvp(p1_src_file, args);
         exit(EXIT_SUCCESS);
     }
     else if(p2 == 0){
-        char* args[] = {p2_src_file, NULL};
+        char* args[] = {p2_src_file, qID_1_str, qID_2_str, NULL};
         execvp(p2_src_file, args);
         exit(EXIT_SUCCESS);
     }
     else if(p3 == 0){
-        char* args[] = {p3_src_file, NULL};
+        char* args[] = {p3_src_file, qID_1_str, qID_2_str, NULL};
         execvp(p3_src_file, args);
         exit(EXIT_SUCCESS);
     }
     else{
-        
         signal(SIGINT,  sigHandler);
         signal(SIGUSR1, sigHandler);
         signal(SIGUSR2, sigHandler);
@@ -110,6 +153,7 @@ void sigHandler(int signum)
     {
         sprintf(report, "Received SIGINT: [%d]", signum);
         report_err(report);
+        killTheChildProcesses();
     }
     else if(signum == SIGUSR1)
     {
