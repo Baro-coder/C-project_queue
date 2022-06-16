@@ -54,6 +54,12 @@ zidentyfikowane błędy i zakończy działanie.
 
 ## Sygnały [^sig]
 
+### Interpretowane sygnały:
+  - SIGINT -  zakończenia działania programu
+  - SIGUSR1 - zatrzymanie / wznowienie działania programu
+  - SIGUSR2 - odczytanie pamięci dzielonej
+___
+
 ### Scenariusz powiadamiania się procesów o swoim stanie:
   1. Do procesu 3 wysyłane są sygnały. 
   2. Proces 3 przesyłą otrzymany sygnał do procesu macierzystego.
