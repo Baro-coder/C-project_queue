@@ -12,6 +12,6 @@ void build(char ** argv);       // prepare the control data
 int queueOpen(key_t key);       // get access to the queue
 
 int receive(char * buffer);    // receive data
-void transfer(char * buffer);   // transfer data to next process
+void transfer(char * buffer, int msg_type);   // transfer data to next process
 
 #endif

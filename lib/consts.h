@@ -9,6 +9,7 @@
 
 #define STRING_TYPE 1
 #define INT_TYPE 2
+#define NWLINE_TYPE 10
 
 // Message structure
 struct msgbuff

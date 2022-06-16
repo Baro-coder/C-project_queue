@@ -21,14 +21,26 @@ int main(int argc, char ** argv)
     report_out("Ready.");
 
     char * buffer = (char *) malloc(BUFF_SIZE * sizeof(char));
+    char * output = (char *) malloc(BUFF_SIZE * sizeof(char));
 
     while(1)
     {
         if(receive(buffer) == 0)
         {
-            printf("P2: %s\n", buffer);
+            //printf("P2: %s\n", buffer);
+
+            sprintf(output, "%d", strlen(buffer));
+
+            transfer(output, INT_TYPE);
+
+            if(strstr(buffer, "\n")){
+                transfer("0", NWLINE_TYPE);
+            }
+
             memset(buffer, 0, BUFF_SIZE);
             buffer = (char *) malloc(BUFF_SIZE * sizeof(char));
+            memset(output, 0, BUFF_SIZE);
+            output = (char *) malloc(BUFF_SIZE * sizeof(char));
         }
     }
 
@@ -77,6 +89,20 @@ int receive(char * buffer)
     else {
         return 1;
     }
+}
+
+void transfer(char * output, int msg_type)
+{
+    struct msgbuff msg;
+
+    msg.type = msg_type;
+    strcpy(msg.data, output);
+
+    //char * report = (char *) malloc(BUFF_SIZE * sizeof(char));
+    //sprintf(report, "Send: {%d : %s}", msg.type, msg.data);
+    //report_out(report);
+
+    msgsnd(qID_2, &msg, sizeof(struct msgbuff), 0);
 }
 
 void sigHandler(int signum)

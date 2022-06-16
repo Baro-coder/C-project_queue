@@ -58,6 +58,7 @@ void menu()
     while(1)
     {
         usleep(500);
+
         printf("----------------------------\n");
         printf(" # MENU # \n");
         printf(" [1]. Manual\n");
@@ -101,7 +102,7 @@ void manual()
             free(buffer);
             break;
         } else {
-            transfer(buffer);
+            transfer(buffer, STRING_TYPE);
         }
 
         memset(buffer, 0, BUFF_SIZE);
@@ -128,7 +129,7 @@ void file()
 
             if(fgets(buffer, sizeof(buffer), fp) == NULL) break;
 
-            transfer(buffer);
+            transfer(buffer, STRING_TYPE);
 
             memset(buffer, 0, BUFF_SIZE);
         }
@@ -147,27 +148,17 @@ int queueOpen(key_t key)
     else return qID;
 }
 
-void transfer(char * buffer)
+void transfer(char * buffer, int msg_type)
 {
     struct msgbuff msg;
 
-    msg.type = STRING_TYPE;
-    
-    int i = 0;
-    char c = buffer[i]; 
-    while(1)
-    {
-        if(c == '\n') break;
+    msg.type = msg_type;
 
-        msg.data[i] = c;
-        i++;
-        c = buffer[i];
-    }
-    msg.data[i] = '\0';
+    sprintf(msg.data, "%s", buffer);
 
-    char * report = (char *) malloc(BUFF_SIZE * sizeof(char));
-    sprintf(report, "Send: {%d : %s}", msg.type, msg.data);
-    report_out(report);
+    //char * report = (char *) malloc(BUFF_SIZE * sizeof(char));
+    //sprintf(report, "Send: {%d : %s}", msg.type, msg.data);
+    //report_out(report);
 
     msgsnd(qID_1, &msg, sizeof(struct msgbuff), 0);
 }

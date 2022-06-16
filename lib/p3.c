@@ -15,14 +15,34 @@
 #include "consts.h"
 #include "child.h"
 
+int chr_count;
+
 int main(int argc, char ** argv)
 {
     build(argv);
     report_out("Ready.");
 
+    char * buffer = (char *) malloc(BUFF_SIZE * sizeof(char));
+    int ret;
+
     while(1)
     {
-        ;;
+        ret = receive(buffer);
+
+        if(ret == 0)
+        {
+            chr_count += atoi(buffer);
+            memset(buffer, 0, BUFF_SIZE);
+            buffer = (char *) malloc(BUFF_SIZE * sizeof(char));
+        }
+        else if(ret == 1)
+        {
+            memset(buffer, 0, BUFF_SIZE);
+            buffer = (char *) malloc(BUFF_SIZE * sizeof(char));
+
+            fprintf(stderr, "%d\n", chr_count);
+            chr_count = 0;
+        }
     }
     
     return 0;
@@ -46,11 +66,35 @@ void build(char ** argv)
         report_err("Error opening the queue 2!");
     }
 
+    chr_count = 0;
+
     signal(SIGINT,  sigHandler);
     signal(SIGUSR1, sigHandler);
     signal(SIGUSR2, sigHandler);
 }
 
+int receive(char * buffer)
+{
+    struct msgbuff * rcv;
+
+    msgrcv(qID_2, rcv, sizeof(struct msgbuff), 0, 0);
+
+    //char * report = (char *) malloc(BUFF_SIZE * sizeof(char));
+    //sprintf(report, "Received: { %d : %s : %d }", rcv->type, rcv->data, chr_count);
+    //report_err(report);
+    //free(report);
+
+    if(rcv->type == INT_TYPE){
+        strcpy(buffer, rcv->data);
+        return 0;
+    }
+    else if(rcv->type == NWLINE_TYPE){
+        return 1;
+    }
+    else {
+        return -1;
+    }
+}
 
 void sigHandler(int signum)
 {
