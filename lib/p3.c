@@ -82,6 +82,7 @@ void build(char ** argv)
 
     signal(SIGINT,  sigHandler);
     signal(SIGUSR1, sigHandler);
+    signal(SIGTSTP, sigHandler);
     signal(SIGUSR2, sigHandler);
 }
 
@@ -134,8 +135,11 @@ void sigHandler(int signum)
         }
         else if(sig_code == SIGUSR1)
         {
-            if(running == 0) running = 1;
-            else running = 0;
+            running = 1;
+        }
+        else if(sig_code == SIGTSTP)
+        {
+            running = 0;
         }
     }
     else

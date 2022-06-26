@@ -16,6 +16,8 @@
 
 int main()
 {
+    printf("MSGBUFF: %d B\n", sizeof(struct msgbuff));
+    printf("SHMSEG: %d B\n\n", sizeof(struct shmseg));
     report_out("Building the synchronization structures...");
     if(buildTheSyncStructures() != 0){
         report_err("Error building the synchronization structures!");
@@ -139,6 +141,7 @@ int callTheChildProcesses()
         signal(SIGINT,  sigHandler);
         signal(SIGUSR1, sigHandler);
         signal(SIGUSR2, sigHandler);
+        signal(SIGTSTP, sigHandler);
 
         wait(NULL);
         wait(NULL);
@@ -183,6 +186,11 @@ void sigHandler(int signum)
     else if(signum == SIGUSR2)
     {
         sprintf(report, "Received SIGUSR2: [%d]", signum);
+        report_err(report);
+    }
+    else if(signum == SIGTSTP)
+    {
+        sprintf(report, "Received SIGTSTP: [%d]", signum);
         report_err(report);
     }
     else
